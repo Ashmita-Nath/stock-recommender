@@ -2,16 +2,23 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import logging
 import warnings
+import os
 warnings.filterwarnings("ignore")
 logging.getLogger("yfinance").setLevel(logging.CRITICAL)
-
-from src.predict import predict
 
 app = FastAPI(
     title="Stock Recommendation API",
     description="Buy / Hold / Sell signals for NSE stocks using XGBoost",
     version="1.0.0"
 )
+
+# Load model lazily so startup errors are visible
+try:
+    from src.predict import predict
+    MODEL_LOADED = True
+except Exception as e:
+    MODEL_LOADED = False
+    MODEL_ERROR  = str(e)
 
 
 # ── Request / Response schemas ────────────────────────────────────────
@@ -41,17 +48,19 @@ def root():
 
 @app.get("/health")
 def health():
+    if not MODEL_LOADED:
+        raise HTTPException(status_code=503, detail=f"Model not loaded: {MODEL_ERROR}")
     return {"status": "ok"}
 
 
 @app.post("/predict", response_model=PredictResponse)
 def get_prediction(request: PredictRequest):
-    ticker = request.ticker.upper().strip()
+    if not MODEL_LOADED:
+        raise HTTPException(status_code=503, detail=f"Model not loaded: {MODEL_ERROR}")
 
+    ticker = request.ticker.upper().strip()
     if not ticker:
         raise HTTPException(status_code=400, detail="Ticker cannot be empty")
-
-    # Add .NS suffix automatically if user forgets
     if "." not in ticker:
         ticker = ticker + ".NS"
 
@@ -72,9 +81,10 @@ def get_prediction(request: PredictRequest):
 
 @app.get("/predict/{ticker}")
 def get_prediction_by_url(ticker: str):
-    """Convenience GET endpoint — /predict/TCS.NS"""
-    ticker = ticker.upper().strip()
+    if not MODEL_LOADED:
+        raise HTTPException(status_code=503, detail=f"Model not loaded: {MODEL_ERROR}")
 
+    ticker = ticker.upper().strip()
     if "." not in ticker:
         ticker = ticker + ".NS"
 
