@@ -1,16 +1,17 @@
 import pandas as pd
 import numpy as np
 import joblib
+import yfinance as yf
 import warnings
-warnings.filterwarnings("ignore")
-
+import os
 import logging
+warnings.filterwarnings("ignore")
 logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 
-import yfinance as yf
-
-model    = joblib.load("models/xgb_model.joblib")
-FEATURES = joblib.load("models/features.joblib")
+# Absolute path — works both locally and on Render
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+model    = joblib.load(os.path.join(BASE_DIR, "models", "xgb_model.joblib"))
+FEATURES = joblib.load(os.path.join(BASE_DIR, "models", "features.joblib"))
 
 LABEL_MAP = {0: "Sell", 1: "Hold", 2: "Buy"}
 
